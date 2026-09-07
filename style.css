@@ -1,0 +1,1011 @@
+/* API 配置管理器：白色 / 黑色 / 跟随酒馆 CSS，三种美化共用居中布局。
+ * 视觉样式使用低优先级回退，酒馆自定义 CSS 中的 .popup / .menu_button /
+ * .text_pole 可以直接接管外观；高优先级规则只负责布局和紧凑尺寸。
+ */
+:where(.api-config-launcher, #api-config-modal) {
+    --acm-surface: var(--SmartThemeBlurTintColor, Canvas);
+    --acm-surface-soft: var(--SmartThemeUserMesBlurTintColor, transparent);
+    --acm-surface-raised: var(--SmartThemeBotMesBlurTintColor, transparent);
+    --acm-text: var(--SmartThemeBodyColor, CanvasText);
+    --acm-accent: var(--SmartThemeEmColor, currentColor);
+    --acm-border: var(--SmartThemeBorderColor, currentColor);
+    --acm-shadow: var(--SmartThemeShadowColor, transparent);
+    --acm-blur: var(--SmartThemeBlurStrength, 10px);
+    --acm-font-size: calc(var(--mainFontSize, 15px) * 0.875);
+    color: var(--acm-text);
+    font-family: inherit;
+    font-size: var(--acm-font-size);
+    line-height: 1.4;
+}
+
+/* 两套固定配色只覆盖扩展内部，切到 tavern 后自然回到宿主的实时变量。 */
+:where(.api-config-launcher, #api-config-modal)[data-api-config-theme="light"] {
+    --SmartThemeBodyColor: #292c35;
+    --SmartThemeEmColor: #576c94;
+    --SmartThemeQuoteColor: #737b8b;
+    --SmartThemeBlurTintColor: #fafbfe;
+    --SmartThemeBorderColor: #dce0e9;
+    --SmartThemeUserMesBlurTintColor: #f1f3f8;
+    --SmartThemeBotMesBlurTintColor: #e9edf5;
+    --SmartThemeShadowColor: rgb(32 38 56 / 0.15);
+    color-scheme: light;
+}
+
+:where(.api-config-launcher, #api-config-modal)[data-api-config-theme="dark"] {
+    --SmartThemeBodyColor: #e4e6ed;
+    --SmartThemeEmColor: #a9bce6;
+    --SmartThemeQuoteColor: #939caf;
+    --SmartThemeBlurTintColor: #232630;
+    --SmartThemeBorderColor: #3e4352;
+    --SmartThemeUserMesBlurTintColor: #2b2f3b;
+    --SmartThemeBotMesBlurTintColor: #33394a;
+    --SmartThemeShadowColor: rgb(0 0 0 / 0.3);
+    color-scheme: dark;
+}
+
+/* 固定黑白模式保持自己的控件配色；第三种美化不匹配这些规则。 */
+#api-config-modal:not([data-api-config-theme="tavern"]) #api-config-manager {
+    color: var(--acm-text);
+    background: var(--acm-surface);
+    border: 1px solid var(--acm-border);
+    border-radius: 14px;
+    box-shadow: 0 16px 48px var(--acm-shadow);
+}
+
+:is(.api-config-launcher, #api-config-modal):not([data-api-config-theme="tavern"]) .menu_button,
+#api-config-modal:not([data-api-config-theme="tavern"]) .text_pole {
+    color: var(--acm-text);
+    background: var(--acm-surface-soft);
+    border: 1px solid var(--acm-border);
+    border-radius: 6px;
+    filter: none;
+    box-shadow: none;
+}
+
+:is(.api-config-launcher, #api-config-modal):not([data-api-config-theme="tavern"]) .menu_button:hover {
+    border-color: var(--acm-accent);
+    background: var(--acm-surface-raised);
+}
+
+/* 固定配色不使用宿主的图片箭头，避免 background 重置后下拉框失去指示。 */
+#api-config-modal:not([data-api-config-theme="tavern"]) select.text_pole {
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 14px) center, calc(100% - 10px) center;
+    background-size: 4px 4px;
+    background-repeat: no-repeat;
+}
+
+#api-config-modal:not([data-api-config-theme="tavern"]) select.text_pole option {
+    background: var(--acm-surface);
+    color: var(--acm-text);
+}
+
+:is(.api-config-launcher, #api-config-modal):not([data-api-config-theme="tavern"]) :where(*) {
+    text-shadow: none;
+}
+
+.api-config-launcher,
+.api-config-launcher *,
+#api-config-modal,
+#api-config-modal * {
+    box-sizing: border-box;
+}
+
+.api-config-launcher {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    margin: 8px 0;
+    border: 1px solid var(--acm-border);
+    border-radius: 10px;
+    background: var(--acm-surface);
+}
+
+.api-config-launcher-info,
+.api-config-title-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.api-config-launcher-info b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#api-config-launcher-count,
+.api-config-theme-note {
+    font-size: 0.85em;
+    opacity: 0.7;
+}
+
+/* 只在弹窗打开时锁住背景，不改写宿主已有的内联 overflow。 */
+html.api-config-modal-open,
+body.api-config-modal-open {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+}
+
+#api-config-modal {
+    --acm-edge: 20px;
+    --acm-panel-height: 90%;
+    --acm-safe-x: max(env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+    --acm-safe-y: max(env(safe-area-inset-top, 0px), env(safe-area-inset-bottom, 0px));
+    position: fixed;
+    inset: auto;
+    left: var(--acm-viewport-left, 0px);
+    top: var(--acm-viewport-top, 0px);
+    z-index: 20000;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    place-items: center;
+    width: var(--acm-viewport-width, 100%);
+    height: 100vh;
+    height: var(--acm-viewport-height, 100dvh);
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    padding: max(var(--acm-edge), var(--acm-safe-y)) max(var(--acm-edge), var(--acm-safe-x));
+    overflow: hidden;
+    overscroll-behavior: contain;
+}
+
+:where(#api-config-modal) {
+    background: var(--api-config-overlay, var(--black50a, rgb(0 0 0 / 0.4)));
+    -webkit-backdrop-filter: blur(var(--acm-blur));
+    backdrop-filter: blur(var(--acm-blur));
+}
+
+#api-config-modal::backdrop {
+    background: transparent;
+}
+
+#api-config-modal[hidden],
+#api-config-manager [hidden] {
+    display: none !important;
+}
+
+#api-config-manager {
+    position: relative;
+    inset: auto;
+    transform: none;
+    display: flex;
+    flex-direction: column;
+    width: min(var(--api-config-width, 840px), 100%);
+    height: min(var(--api-config-height, 700px), var(--acm-panel-height));
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    text-align: left;
+}
+
+/* 触屏打开时只把焦点交给容器，不显示浏览器给非交互容器的整圈焦点框。 */
+#api-config-manager:focus {
+    outline: none;
+}
+
+/* .popup 来自酒馆；以下仅为没有宿主样式时的回退，不锁死配色和圆角。 */
+:where(#api-config-manager) {
+    color: inherit;
+    font: inherit;
+    border: 1px solid var(--acm-border);
+    border-radius: 14px;
+    background: var(--acm-surface);
+    -webkit-backdrop-filter: blur(var(--acm-blur));
+    backdrop-filter: blur(var(--acm-blur));
+    box-shadow: 0 16px 48px var(--acm-shadow);
+}
+
+:where(.api-config-launcher, #api-config-manager) :is(button, input, select) {
+    font: inherit;
+}
+
+:where(.api-config-launcher .menu_button, #api-config-manager .menu_button, #api-config-manager .text_pole) {
+    color: var(--acm-text);
+    background-color: var(--acm-surface-soft);
+    border: 1px solid var(--acm-border);
+    border-radius: 6px;
+}
+
+.api-config-launcher .menu_button,
+#api-config-manager .menu_button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-shrink: 0;
+    width: auto;
+    min-height: 34px;
+    margin: 0;
+    padding: 6px 10px;
+    line-height: 1.25;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+#api-config-manager .menu_button:disabled {
+    cursor: wait;
+    opacity: 0.55;
+}
+
+.api-config-launcher :focus-visible,
+#api-config-manager :focus-visible {
+    outline: 2px solid var(--acm-accent);
+    outline-offset: 2px;
+}
+
+.api-config-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    gap: 10px;
+    padding: 14px 18px 12px;
+}
+
+.api-config-title,
+.api-config-title-line,
+.api-config-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+#api-config-dialog-title {
+    margin: 0;
+    font-size: 1.2em;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.api-config-title {
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+.api-config-header-actions {
+    flex-shrink: 0;
+    gap: 6px;
+}
+
+.api-config-title-icon {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--acm-border);
+    border-radius: 10px;
+    background: var(--acm-surface-raised);
+    color: var(--acm-accent);
+    font-size: 16px;
+}
+
+.api-config-version {
+    opacity: 0.55;
+    font-size: 0.8em;
+    white-space: nowrap;
+}
+
+#api-config-manager .api-config-icon-button {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+}
+
+#api-config-manager .api-config-icon-button {
+    font-size: 23px;
+    font-weight: normal;
+}
+
+.api-config-navigation {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    gap: 8px;
+    padding: 0 18px;
+}
+
+.api-config-theme-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    margin-left: auto;
+    font-size: 0.92em;
+}
+
+#api-config-manager #api-config-theme {
+    width: 154px;
+    min-height: 34px;
+    padding: 4px 24px 4px 8px;
+}
+
+.api-config-tabs {
+    display: flex;
+    flex-shrink: 0;
+    gap: 4px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0;
+    padding: 3px;
+    border: 1px solid var(--acm-border);
+    border-radius: 9px;
+    background: var(--acm-surface-soft);
+}
+
+.api-config-tabs [role="tab"] {
+    flex: 1;
+    min-width: 0;
+    min-height: 32px;
+    padding: 6px 20px;
+    margin: 0;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--acm-text);
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    opacity: 0.65;
+}
+
+.api-config-tabs [aria-selected="true"] {
+    border-color: var(--acm-border);
+    background: var(--acm-surface);
+    box-shadow: 0 1px 3px var(--acm-shadow);
+    opacity: 1;
+}
+
+.api-config-panel {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.api-config-list-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 10px;
+    padding: 12px 18px 8px;
+}
+
+.api-config-search-box {
+    position: relative;
+    min-width: 0;
+}
+
+.api-config-search-box > i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    opacity: 0.7;
+    font-size: 0.92em;
+}
+
+#api-config-result-count {
+    font-size: 0.85em;
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+#api-config-manager .text_pole {
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    margin: 0;
+    padding: 8px 10px;
+    text-overflow: ellipsis;
+}
+
+#api-config-manager select.text_pole {
+    padding-right: 24px;
+}
+
+#api-config-manager #api-config-search {
+    min-height: 40px;
+    padding: 9px 40px 9px 36px;
+}
+
+#api-config-manager #api-config-search-clear {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    min-height: 30px;
+}
+
+#api-config-search::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+}
+
+.api-config-scroll-area {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    scroll-padding-block: 10px;
+    padding: 0 18px 12px;
+}
+
+.api-config-list-footer,
+.api-config-editor-footer {
+    flex-shrink: 0;
+    padding: 10px 18px;
+    border-top: 1px solid var(--acm-border);
+}
+
+.api-config-list-footer {
+    font-size: 0.85em;
+    color: var(--acm-accent);
+}
+
+.api-config-editor-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+#api-config-save {
+    min-width: 128px;
+    font-weight: 600;
+}
+
+#api-config-editor-title {
+    margin: 16px 0 14px;
+    font-size: 1.05em;
+    color: inherit;
+}
+
+.api-config-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 14px;
+}
+
+.api-config-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.api-config-field-wide {
+    grid-column: 1 / -1;
+}
+
+.api-config-field label {
+    font-size: 0.92em;
+}
+
+.api-config-field-note {
+    margin-left: 4px;
+    opacity: 0.6;
+    font-size: 0.9em;
+}
+
+.api-config-model-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+#api-config-source-hint {
+    display: block;
+    margin: 12px 0 2px;
+    opacity: 0.7;
+    font-size: 0.92em;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.api-config-group-header,
+.api-config-pinned-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    padding: 6px 4px;
+    margin: 6px 0 4px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--acm-accent);
+    text-align: left;
+    font-size: 0.92em;
+    font-weight: 600;
+}
+
+.api-config-group-header {
+    cursor: pointer;
+}
+
+.api-config-group-header:hover {
+    background: var(--acm-surface-raised);
+}
+
+.api-config-group-header > i,
+.api-config-pinned-header > i {
+    flex-shrink: 0;
+    font-size: 10px;
+}
+
+.api-config-group-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.api-config-group-count {
+    flex-shrink: 0;
+    min-width: 24px;
+    margin-left: auto;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--acm-surface-raised);
+    text-align: center;
+    font-size: 0.9em;
+    font-weight: normal;
+}
+
+.api-config-group-content {
+    margin-bottom: 8px;
+}
+
+/* 保留紧凑卡片；桌面操作在右侧，窄屏自动换到下方，不挤压名称。 */
+#api-config-list {
+    container: api-config-list / inline-size;
+    min-width: 0;
+}
+
+.api-config-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "info pin actions";
+    align-items: center;
+    gap: 10px;
+    min-height: 46px;
+    padding: 7px 10px;
+    margin: 5px 0;
+    border: 1px solid var(--acm-border);
+    border-left: 2px solid var(--acm-accent);
+    border-radius: 8px;
+    background: var(--acm-surface-soft);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.api-config-item:hover,
+.api-config-item:focus-within {
+    border-color: var(--acm-accent);
+    background: var(--acm-surface-raised);
+}
+
+.api-config-info {
+    grid-area: info;
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.api-config-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+    font-weight: 600;
+    font-size: 1em;
+    line-height: 1.25;
+}
+
+.api-config-name-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.api-config-source-tag {
+    display: inline-block;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 60%;
+    padding: 1px 5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.85em;
+    font-weight: normal;
+    background: var(--acm-surface-raised);
+    border: 1px solid var(--acm-border);
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.api-config-details {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.api-config-connection-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8em;
+    line-height: 1.35;
+    white-space: nowrap;
+    opacity: 0.85;
+}
+
+.api-config-connection-state::before {
+    content: '';
+    flex-shrink: 0;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.45;
+}
+
+.api-config-item:is([data-connection-state="connecting"], [data-connection-state="queued"]) .api-config-connection-state::before {
+    background: var(--acm-accent);
+    opacity: 1;
+}
+
+.api-config-item[data-connection-state="connected"] .api-config-connection-state::before {
+    background: var(--api-config-success-color, #38a57a);
+    opacity: 1;
+}
+
+.api-config-item[data-connection-state="failed"] .api-config-connection-state::before {
+    background: var(--api-config-failure-color, #d16464);
+    opacity: 1;
+}
+
+.api-config-model,
+.api-config-no-model {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85em;
+    line-height: 1.35;
+    opacity: 0.7;
+}
+
+.api-config-no-model {
+    font-style: italic;
+}
+
+/* 图钉独立于四个操作按钮；手机放在信息右侧，不新增一整行。 */
+#api-config-list .api-config-pin {
+    grid-area: pin;
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    min-height: 30px;
+    padding: 0;
+}
+
+.api-config-pin > i {
+    transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.api-config-pin[aria-pressed="false"] > i {
+    opacity: 0.55;
+    transform: rotate(35deg);
+}
+
+.api-config-pin[aria-pressed="true"] > i {
+    color: var(--acm-accent);
+}
+
+#api-config-list .api-config-pin[aria-pressed="true"] {
+    border-color: var(--acm-accent);
+}
+
+#api-config-list .api-config-actions {
+    grid-area: actions;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: nowrap;
+    margin: 0;
+    font-size: 0.92em;
+}
+
+#api-config-list .api-config-actions .menu_button {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 30px;
+    min-width: 44px;
+    padding: 4px 9px;
+    line-height: 1.2;
+}
+
+#api-config-list .api-config-connect {
+    font-weight: 600;
+}
+
+.api-config-empty {
+    text-align: center;
+    opacity: 0.7;
+    padding: 24px 12px;
+}
+
+@container api-config-list (max-width: 440px) {
+    .api-config-item {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas: "info pin" "actions actions";
+        gap: 6px;
+        padding: 7px 8px;
+    }
+
+    #api-config-list .api-config-actions {
+        justify-content: flex-end;
+    }
+}
+
+@supports not (container-type: inline-size) {
+    @media (max-width: 520px) {
+        .api-config-item {
+            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-areas: "info pin" "actions actions";
+            gap: 6px;
+            padding: 7px 8px;
+        }
+
+        #api-config-list .api-config-actions {
+            justify-content: flex-end;
+        }
+    }
+}
+
+@media (max-width: 600px) {
+    #api-config-modal {
+        --acm-edge: 12px;
+    }
+
+    .api-config-dialog-header {
+        padding: 12px;
+    }
+
+    .api-config-navigation {
+        padding: 0 12px;
+    }
+
+    .api-config-tabs {
+        flex: 1;
+    }
+
+    .api-config-tabs [role="tab"] {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .api-config-theme-control {
+        font-size: max(16px, var(--acm-font-size));
+    }
+
+    .api-config-theme-control > span {
+        display: none;
+    }
+
+    #api-config-manager #api-config-theme {
+        width: 156px;
+    }
+
+    .api-config-list-toolbar {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 6px;
+        padding: 10px 12px 6px;
+    }
+
+    .api-config-scroll-area,
+    .api-config-list-footer,
+    .api-config-editor-footer {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .api-config-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .api-config-field,
+    .api-config-search-box {
+        /* 避免 iOS 聚焦输入框自动放大，也保留更大的酒馆字号。 */
+        font-size: max(16px, var(--acm-font-size));
+    }
+
+    #api-config-save {
+        flex: 1;
+    }
+}
+
+@media (pointer: coarse) {
+    #api-config-manager #api-config-theme {
+        min-height: 40px;
+    }
+
+    #api-config-manager .menu_button,
+    .api-config-tabs [role="tab"] {
+        min-height: 40px;
+    }
+
+    #api-config-manager .api-config-icon-button {
+        width: 40px;
+        height: 40px;
+    }
+
+    #api-config-list .api-config-actions .menu_button {
+        min-height: 40px;
+        min-width: 48px;
+    }
+
+    #api-config-list .api-config-pin {
+        width: 40px;
+        min-width: 40px;
+        height: 40px;
+        min-height: 40px;
+    }
+
+    #api-config-manager .api-config-editor-footer .menu_button {
+        min-height: 44px;
+    }
+
+    .api-config-field,
+    .api-config-search-box,
+    .api-config-theme-control {
+        font-size: max(16px, var(--acm-font-size));
+    }
+}
+
+@media (max-width: 420px) {
+    .api-config-version {
+        display: none;
+    }
+}
+
+/* 四个短按钮在窄卡片内均分，保留触屏高度，不挤出 280 / 320px 手机视口。 */
+@container api-config-list (max-width: 320px) {
+    #api-config-list .api-config-actions {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        width: 100%;
+        gap: 4px;
+    }
+
+    #api-config-list .api-config-actions .menu_button {
+        min-width: 0;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+}
+
+@supports not (container-type: inline-size) {
+    @media (max-width: 380px) {
+        #api-config-list .api-config-actions {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            width: 100%;
+            gap: 4px;
+        }
+
+        #api-config-list .api-config-actions .menu_button {
+            min-width: 0;
+            padding-left: 4px;
+            padding-right: 4px;
+        }
+    }
+}
+
+@media (max-width: 380px) {
+    #api-config-connect-all > i {
+        display: none;
+    }
+
+    #api-config-manager #api-config-connect-all {
+        padding-left: 7px;
+        padding-right: 7px;
+    }
+
+    .api-config-navigation {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .api-config-tabs {
+        width: 100%;
+    }
+
+    .api-config-theme-control {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .api-config-theme-control > span {
+        display: inline;
+        font-size: 0.8em;
+    }
+
+    .api-config-title-icon {
+        display: none;
+    }
+
+    #api-config-dialog-title {
+        font-size: 1.06em;
+    }
+
+    .api-config-model-input {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* 这里跟随 visualViewport，而不只依赖布局视口的媒体查询；键盘弹出也生效。 */
+#api-config-modal.api-config-compact-height {
+    --acm-edge: 8px;
+    --acm-panel-height: 100%;
+}
+
+.api-config-compact-height .api-config-dialog-header {
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.api-config-compact-height .api-config-theme-note,
+.api-config-compact-height .api-config-list-footer {
+    display: none;
+}
+
+.api-config-compact-height .api-config-tabs [role="tab"] {
+    min-height: 30px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+body.no-blur #api-config-modal,
+body.no-blur #api-config-manager {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #api-config-manager *,
+    .api-config-launcher * {
+        transition: none;
+    }
+}
