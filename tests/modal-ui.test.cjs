@@ -6,6 +6,8 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 const createStatusMock = require('./status-mock.cjs');
+const checkModelControls = require('./model-ui.cjs');
+const checkCredentialControls = require('./credentials-ui.cjs');
 
 const root = path.resolve(__dirname, '..');
 const host = process.env.SILLYTAVERN_PUBLIC || path.resolve(root, '../SillyTavern/public');
@@ -60,13 +62,34 @@ async function check(name, expression) {
 }
 
 async function settleLayout() {
-    await evaluate(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+    // 宿主的尺寸过渡是 250ms，固定等待 220ms 会偶发量到 29.98px。
+    // 等本扩展内有限、正在运行的动画真正结束；不改 CSS，也不跳过尺寸断言。
+    await evaluate(`(async () => {
+        const frame = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        await frame();
+        const animations = document.getElementById('api-config-modal')?.getAnimations({ subtree: true }) || [];
+        await Promise.all(animations.filter(animation => animation.playState === 'running' && Number.isFinite(animation.effect?.getComputedTiming().endTime)).map(animation => animation.finished.catch(() => {})));
+        await frame();
+    })()`);
 }
 
 async function setViewport(width, height, mobile = false) {
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile });
     await send('Emulation.setTouchEmulationEnabled', { enabled: mobile });
     await settleLayout();
+}
+
+async function checkHeaderControlSizing(label) {
+    await settleLayout();
+    await check(label + ': header buttons are equal squares, aligned and evenly spaced', `
+        const buttons = [...document.querySelectorAll('.api-config-header-actions > button')];
+        const rects = buttons.map(button => button.getBoundingClientRect());
+        const size = matchMedia('(pointer: coarse)').matches ? 40 : 34;
+        const near = (actual, expected) => Math.abs(actual - expected) < 0.1;
+        return rects.length === 3 && rects.every(rect =>
+            near(rect.width, size) && near(rect.height, size) && near(rect.top, rects[0].top)
+        ) && near(rects[1].left - rects[0].right, 6) && near(rects[2].left - rects[1].right, 6);
+    `);
 }
 
 async function checkConnectionControls() {
@@ -102,6 +125,7 @@ async function checkConnectionControls() {
         $('#api-config-connect-all').trigger('click'); await Promise.resolve();
         return fixture.statusMock.calls.length === 3 && $('.api-config-connect-all-label').text() === '停止连接' && $('#api-config-connection-summary').text().includes('0/6') && !$('#api-config-list-panel').prop('hidden') && $('#api-config-name').val() === '连接时保留的草稿' && $('#api-config-search').val() === 'Connection 3';
     `);
+    await checkHeaderControlSizing('connecting (stop icon)');
     await check('all-connect finishes every saved config without switching API, saving credentials or rebuilding the visible card', `
         const card = $('.api-config-item')[0]; const pending = fixture.waitForConnections();
         fixture.statusMock.hold = false; fixture.statusMock.releaseAll(); await pending;
@@ -329,12 +353,14 @@ async function main() {
         ${toastHelper}
         ${uiSource}
         const applied = [];
+        const appliedModels = [];
+        const fetchModelsForTest = fetchAvailableModels;
         let fetched = 0;
-        applyConfig = async config => applied.push(config);
+        applyConfig = async (config, model = getConfigDefaultModel(config)) => { applied.push(config); appliedModels.push({ config, model }); };
         fetchAvailableModels = async () => { fetched++; $('#api-config-model-select').html('<option value="fixture-model">fixture-model</option>').show(); };
         window.confirm = () => true;
         window.fixture = {
-            settings: extension_settings[MODULE_NAME], applied, messages,
+            settings: extension_settings[MODULE_NAME], applied, appliedModels, messages, fetchModelsForTest, setPreferredModel,
             saveCount: () => saveCount, fetched: () => fetched, editingIndex: () => editingIndex,
             createUI, bindEvents, renderConfigList, showManagerView, initSettings, setManagerTheme,
             statusMock, nativeSettings, connectConfig, secretMutations: () => secretMutations,
@@ -351,6 +377,15 @@ async function main() {
     await check('closed by default; compact launcher is first', `return $('#api-config-modal').prop('hidden') && $('#openai_api').children().first().hasClass('api-config-launcher') && $('.api-config-launcher').outerHeight() < 80;`);
     await check('idempotent UI and delegated handlers', `await fixture.createUI(); fixture.bindEvents(); return $('#api-config-modal').length === 1 && $('.api-config-open').length === 1;`);
     await check('update is replaced by all-connect at the top and one connect control per card', `return !$('#api-config-update').length && $('.api-config-dialog-header #api-config-connect-all').length === 1 && $('.api-config-connect').length === 50 && !fixture.statusMock.calls.length;`);
+    await check('launcher has only an accessible icon and the whole bar opens by pointer or keyboard', `
+        const button = $('.api-config-open');
+        const iconOnly = !button.text().trim() && !!button.attr('aria-label') && button.find('i').length === 1;
+        $('.api-config-launcher-info').trigger('click'); const clicked = !$('#api-config-modal').prop('hidden');
+        $('#api-config-close').trigger('click');
+        $('.api-config-launcher').trigger($.Event('keydown', { key: 'Enter' })); const keyboard = !$('#api-config-modal').prop('hidden');
+        $('#api-config-close').trigger('click');
+        return iconOnly && clicked && keyboard;
+    `);
     await check('open, focus, scroll lock', `window.scrollTo(0, 200); window.originalScroll = window.scrollY; $('.api-config-open').trigger('click'); return !$('#api-config-modal').prop('hidden') && $('#api-config-editor-panel').prop('hidden') && document.activeElement.id === 'api-config-search' && getComputedStyle(document.body).overflowY === 'hidden' && window.scrollY === window.originalScroll;`);
     await check('host toasts follow native modal and return on close', `$('#toast-container').append('<div class="toast">模拟通知</div>'); const opened = $('#toast-container').parent().attr('id') === 'api-config-modal'; $('#api-config-close').trigger('click'); const closed = $('#toast-container').parent()[0] === document.body; $('.api-config-open').trigger('click'); const reopened = $('#toast-container').parent().attr('id') === 'api-config-modal'; $('#toast-container').empty(); return opened && closed && reopened;`);
     await check('text is escaped; special groups render', `return !$('#api-config-list b, #api-config-list img').length && $('.api-config-name-text').filter((i, el) => el.textContent.includes('<b>')).length === 1 && $('.api-config-group-name').filter((i, el) => el.textContent === '__proto__').length === 1;`);
@@ -363,8 +398,8 @@ async function main() {
     await check('prototype-like group names persist safely', `$('.api-config-group-header').filter((i, el) => $(el).data('group') === '__proto__').trigger('click'); return Object.hasOwn(fixture.settings.collapsedGroups, '__proto__') && JSON.parse(JSON.stringify(fixture.settings.collapsedGroups)).__proto__ === true;`);
     await check('empty name validation stays in editor', `$('#api-config-editor-tab').trigger('click'); const before = fixture.saveCount(); $('#api-config-save').trigger('click'); return fixture.saveCount() === before && !$('#api-config-editor-panel').prop('hidden') && fixture.messages.at(-1).type === 'error';`);
     await check('save creates one config and returns to list', `$('#api-config-name').val('新增测试'); $('#api-config-source').val('custom').trigger('change'); $('#api-config-url').val('https://example.invalid/v1'); const before = fixture.saveCount(); $('#api-config-save').trigger('click'); return fixture.settings.configs.length === 51 && fixture.saveCount() === before + 1 && !$('#api-config-list-panel').prop('hidden') && $('#api-config-search').val() === '' && $('#api-config-launcher-count').text() === '51 个配置';`);
-    await check('edit and save preserve secret metadata', `$('#api-config-search').val('备用配置 01').trigger('input'); $('.api-config-edit').trigger('click'); const secret = fixture.settings.configs[1].secretId; $('#api-config-model').val('changed-model'); $('#api-config-save').trigger('click'); return fixture.settings.configs[1].model === 'changed-model' && fixture.settings.configs[1].secretId === secret && fixture.settings.configs.length === 51;`);
-    await check('model fetch and select controls remain wired', `$('#api-config-editor-tab').trigger('click'); $('#api-config-fetch-models').trigger('click'); $('#api-config-model-select').trigger('change'); return fixture.fetched() === 1 && $('#api-config-model').val() === 'fixture-model';`);
+    await check('edit and save preserve secret metadata', `$('#api-config-search').val('备用配置 01').trigger('input'); $('.api-config-edit').trigger('click'); const secret = fixture.settings.configs[1].secretId; $('#api-config-model').val('changed-model'); $('#api-config-add-model').trigger('click'); $('.api-config-editor-model-default').last().trigger('click'); $('#api-config-save').trigger('click'); return fixture.settings.configs[1].model === 'changed-model' && fixture.settings.configs[1].secretId === secret && fixture.settings.configs.length === 51;`);
+    await check('model fetch and select controls remain wired', `$('#api-config-editor-tab').trigger('click'); $('#api-config-fetch-models').trigger('click'); $('#api-config-model-select').trigger('change'); return fixture.fetched() === 1 && $('#api-config-model').val() === '' && $('#api-config-preferred-models .api-config-saved-model-name').text().includes('fixture-model');`);
     await check('IME Enter does not save', `$('#api-config-name').val('输入法草稿'); const before = fixture.saveCount(); document.getElementById('api-config-name').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, isComposing: true })); return fixture.saveCount() === before;`);
     await check('source labels and fields switch together', `$('#api-config-source').val('makersuite').trigger('change'); const google = $('#api-config-url').closest('.api-config-field').prop('hidden') && !$('#api-config-proxy-password').closest('.api-config-field').prop('hidden'); $('#api-config-source').val('custom').trigger('change'); return google && !$('#api-config-url').closest('.api-config-field').prop('hidden') && $('#api-config-proxy-password').closest('.api-config-field').prop('hidden');`);
     await check('Tab cycles within modal', `const items = $('#api-config-manager').find('button, input, select, textarea, a[href], [tabindex]').filter(':visible:not(:disabled):not([tabindex="-1"])').toArray(); items.at(-1).focus(); $(document).trigger($.Event('keydown', { key: 'Tab' })); const forward = document.activeElement === items[0]; $(document).trigger($.Event('keydown', { key: 'Tab', shiftKey: true })); return forward && document.activeElement === items.at(-1);`);
@@ -382,6 +417,8 @@ async function main() {
 
     await checkConnectionControls();
     await checkPinControls();
+    await checkModelControls({ check, evaluate, setViewport, settleLayout, send, fs, path, artifacts });
+    await checkCredentialControls({ check, evaluate, setViewport, settleLayout, send, fs, path, artifacts });
     await evaluate(`(async () => {
         fixture.settings.configs = ${JSON.stringify(fixtures)};
         for (const index of [0, 7, 48]) fixture.settings.configs[index].pinned = true;
@@ -394,13 +431,24 @@ async function main() {
         const button = $('.api-config-pin[data-index="47"]')[0]; const row = button.closest('.api-config-item').getBoundingClientRect(); const bounds = scroll.getBoundingClientRect();
         return fixture.settings.configs[47].pinned === true && document.activeElement === button && row.top >= bounds.top - 1 && row.bottom <= bounds.bottom + 1 && scrollY === y;
     `);
-    await check('three selectable beautifications; existing choices retained', `return [...document.querySelectorAll('#api-config-theme option')].map(option => option.value).join() === 'light,dark,tavern' && $('#api-config-theme').val() === 'light';`);
+    await check('one borderless theme button cycles all three persisted modes', `
+        const button = $('#api-config-theme-toggle');
+        if (button.length !== 1 || $('.api-config-theme-control').length !== 1 || $('.api-config-theme-option, #api-config-theme, .api-config-theme-note').length || button.attr('data-theme') !== 'light') return false;
+        const saves = fixture.saveCount(); const calls = fixture.statusMock.calls.length;
+        const configs = JSON.stringify(fixture.settings.configs);
+        for (const [theme, icon, next] of [['dark', 'fa-moon', '跟随酒馆 CSS'], ['tavern', 'fa-palette', '白色美化'], ['light', 'fa-sun', '黑色美化']]) {
+            button.trigger('click');
+            const style = getComputedStyle(button[0]);
+            if (fixture.settings.theme !== theme || button.attr('data-theme') !== theme || !button.find('i').hasClass(icon) || !button.attr('aria-label').includes('点击切换为' + next) || style.borderTopWidth !== '0px' || style.boxShadow !== 'none') return false;
+        }
+        return fixture.saveCount() === saves + 3 && fixture.statusMock.calls.length === calls && JSON.stringify(fixture.settings.configs) === configs;
+    `);
     await check('theme selection persists without modifying configs or draft', `
         fixture.showManagerView('editor'); $('#api-config-name').val('换美化也保留的草稿');
         const configs = JSON.stringify(fixture.settings.configs); const saves = fixture.saveCount();
-        $('#api-config-theme').val('dark').trigger('change'); $('#api-config-theme').trigger('change');
+        $('#api-config-theme-toggle').trigger('click'); fixture.setManagerTheme('dark', true);
         $('#api-config-close').trigger('click'); $('.api-config-open').trigger('click'); fixture.initSettings();
-        return fixture.settings.theme === 'dark' && $('#api-config-theme').val() === 'dark' && $('.api-config-launcher').attr('data-api-config-theme') === 'dark' && $('#api-config-modal').attr('data-api-config-theme') === 'dark' && $('#api-config-name').val() === '换美化也保留的草稿' && JSON.stringify(fixture.settings.configs) === configs && fixture.saveCount() === saves + 1;
+        return fixture.settings.theme === 'dark' && $('#api-config-theme-toggle').attr('data-theme') === 'dark' && $('.api-config-launcher').attr('data-api-config-theme') === 'dark' && $('#api-config-modal').attr('data-api-config-theme') === 'dark' && $('#api-config-name').val() === '换美化也保留的草稿' && JSON.stringify(fixture.settings.configs) === configs && fixture.saveCount() === saves + 1;
     `);
     await check('unknown saved theme falls back without discarding configs', `const configs = fixture.settings.configs; fixture.settings.theme = 'unknown'; fixture.initSettings(); fixture.setManagerTheme(fixture.settings.theme); return fixture.settings.theme === 'light' && fixture.settings.configs === configs;`);
     await evaluate(`$('#api-config-cancel').trigger('click');`);
@@ -409,10 +457,11 @@ async function main() {
         ['light', 'light', themes.dark], ['dark', 'dark', themes.light],
         ['tavern-light', 'tavern', themes.light], ['tavern-dark', 'tavern', themes.dark],
     ]) {
-        await evaluate(`Object.entries(${JSON.stringify(variables)}).forEach(([name, value]) => document.documentElement.style.setProperty('--' + name, value)); $('#api-config-theme').val('${selection}').trigger('change');`);
+        await evaluate(`Object.entries(${JSON.stringify(variables)}).forEach(([name, value]) => document.documentElement.style.setProperty('--' + name, value)); fixture.setManagerTheme('${selection}', true);`);
         for (const [width, height, mobile] of [[1298, 860, false], [1024, 768, false], [768, 1024, true], [600, 800, true], [480, 800, true], [390, 844, true], [320, 640, true], [280, 580, true], [844, 390, true], [640, 320, true], [390, 320, true]]) {
             await setViewport(width, height, mobile);
             await evaluate(`fixture.showManagerView('list'); $('#api-config-list-scroll').scrollTop(0);`);
+            await checkHeaderControlSizing(`${theme} ${width}x${height}`);
             await check(`${theme} ${width}x${height}: list fits, no overlap`, `
                 const dialog = document.getElementById('api-config-manager'); const rect = dialog.getBoundingClientRect();
                 const scroll = document.getElementById('api-config-list-scroll');
@@ -421,25 +470,27 @@ async function main() {
                 const tabs = document.querySelector('.api-config-tabs').getBoundingClientRect();
                 const theme = document.querySelector('.api-config-theme-control').getBoundingClientRect();
                 const card = document.querySelector('.api-config-item'); const cardRect = card.getBoundingClientRect();
-                const minimum = matchMedia('(pointer: coarse)').matches ? 40 : 30;
+                const connectIcon = document.querySelector('#api-config-connect-all > i');
+                if (!connectIcon.getBoundingClientRect().width || getComputedStyle(connectIcon).display === 'none') return false;
+                const minimum = matchMedia('(pointer: coarse)').matches ? 30 : 24;
                 const buttonsFit = [...document.querySelectorAll('.api-config-item')].every(item => {
                     const r = item.getBoundingClientRect(); const info = item.querySelector('.api-config-info').getBoundingClientRect();
                     const pin = item.querySelector('.api-config-pin').getBoundingClientRect(); const actions = item.querySelector('.api-config-actions').getBoundingClientRect();
                     const controls = [...item.querySelectorAll('button')];
-                    return r.height < 105 && controls.length === 5 && item.querySelectorAll('.api-config-actions button').length === 4 && info.right <= pin.left + 1 && (pin.right <= actions.left + 1 || Math.max(pin.bottom, info.bottom) <= actions.top + 1) && controls.every(button => { const b = button.getBoundingClientRect(); return b.left >= r.left && b.right <= r.right + 1 && b.top >= r.top && b.bottom <= r.bottom + 1 && b.height >= minimum; });
+                    return r.height < 105 && controls.length === 5 && item.querySelectorAll('.api-config-actions button').length === 4 && info.right <= pin.left + 1 && (pin.right <= actions.left + 1 || Math.max(pin.bottom, info.bottom) <= actions.top + 1) && controls.every(button => { const b = button.getBoundingClientRect(); return b.left >= r.left && b.right <= r.right + 1 && b.top >= r.top && b.bottom <= r.bottom + 1 && b.height >= minimum && b.height <= minimum + 2; });
                 });
-                return rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1 && Math.abs(rect.left - (innerWidth - rect.width) / 2) < 2 && Math.abs(rect.top - (innerHeight - rect.height) / 2) < 2 && dialog.scrollWidth <= dialog.clientWidth + 1 && scroll.scrollWidth <= scroll.clientWidth + 1 && scroll.clientHeight > 60 && scroll.scrollHeight > scroll.clientHeight && title.right < actions.left && (tabs.right <= theme.left + 1 || tabs.bottom <= theme.top + 1) && theme.right <= rect.right && cardRect.height < 105 && buttonsFit;
+                return rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1 && Math.abs(rect.left - (innerWidth - rect.width) / 2) < 2 && Math.abs(rect.top - (innerHeight - rect.height) / 2) < 2 && dialog.scrollWidth <= dialog.clientWidth + 1 && scroll.scrollWidth <= scroll.clientWidth + 1 && scroll.clientHeight > 60 && scroll.scrollHeight > scroll.clientHeight && title.right < actions.left && (theme.left >= actions.left && theme.right <= actions.right && theme.bottom <= tabs.top + 1) && theme.right <= rect.right && cardRect.height < 105 && buttonsFit;
             `);
             await check(`${theme} ${width}x${height}: local scrolling`, `const before = $('.api-config-dialog-header')[0].getBoundingClientRect().top; const y = window.scrollY; $('#api-config-list-scroll').scrollTop(1000); return $('#api-config-list-scroll').scrollTop() > 0 && $('.api-config-dialog-header')[0].getBoundingClientRect().top === before && window.scrollY === y;`);
             await evaluate(`$('#api-config-list-scroll').scrollTop(0);`);
-            if ((theme === 'light' && width === 1298) || (theme === 'dark' && width === 390 && height === 844)) {
+            if (((theme === 'light' || theme === 'tavern-light') && width === 1298) || (theme === 'dark' && width === 390 && height === 844)) {
                 await new Promise(resolve => setTimeout(resolve, 200));
                 const screenshot = await send('Page.captureScreenshot', { format: 'png' });
                 fs.writeFileSync(path.join(artifacts, `${theme}-${width}-list.png`), Buffer.from(screenshot.data, 'base64'));
             }
             await evaluate(`fixture.showManagerView('editor'); $('#api-config-source').val('makersuite').trigger('change');`);
             await check(`${theme} ${width}x${height}: editor footer always visible`, `const dialog = $('#api-config-manager')[0].getBoundingClientRect(); const save = $('#api-config-save')[0].getBoundingClientRect(); const scroll = $('#api-config-editor-scroll')[0]; return save.top >= dialog.top && save.bottom <= dialog.bottom && scroll.clientHeight > 50 && scroll.scrollWidth <= scroll.clientWidth + 1 && $('#api-config-manager')[0].scrollHeight <= $('#api-config-manager')[0].clientHeight + 1;`);
-            if ((theme === 'light' && width === 1298) || (theme === 'dark' && width === 390 && height === 844)) {
+            if (((theme === 'light' || theme === 'tavern-light') && width === 1298) || (theme === 'dark' && width === 390 && height === 844)) {
                 const screenshot = await send('Page.captureScreenshot', { format: 'png' });
                 fs.writeFileSync(path.join(artifacts, `${theme}-${width}-editor.png`), Buffer.from(screenshot.data, 'base64'));
             }
@@ -447,7 +498,7 @@ async function main() {
     }
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
     await setViewport(1298, 860);
-    await evaluate(`fixture.showManagerView('list'); $('#api-config-theme').val('tavern').trigger('change');`);
+    await evaluate(`fixture.showManagerView('list'); fixture.setManagerTheme('tavern', true);`);
     await check('Tavern mode follows theme variables live while open', `
         const root = document.documentElement; window.savedHostStyle = root.getAttribute('style');
         root.style.setProperty('--SmartThemeBlurTintColor', 'rgb(27, 43, 39)');
@@ -472,13 +523,17 @@ async function main() {
         const input = getComputedStyle($('#api-config-search')[0]);
         return dialog.backgroundColor === 'rgb(25, 45, 39)' && dialog.borderTopLeftRadius === '22px' && dialog.fontFamily === 'monospace' && button.backgroundColor === 'rgb(54, 88, 73)' && button.borderTopLeftRadius === '12px' && button.color === 'rgb(232, 252, 238)' && input.backgroundColor === 'rgb(33, 57, 48)' && input.borderTopLeftRadius === '11px' && input.fontFamily === 'monospace';
     `);
+    await check('theme toggle stays borderless even with custom button borders and shadows', `
+        const style = getComputedStyle($('#api-config-theme-toggle')[0]);
+        return style.borderTopWidth === '0px' && style.boxShadow === 'none';
+    `);
     await check('fixed black and white modes do not pick up Tavern custom colors', `
         const configs = JSON.stringify(fixture.settings.configs); const hostStyle = document.documentElement.getAttribute('style');
-        $('#api-config-theme').val('light').trigger('change');
+        fixture.setManagerTheme('light', true);
         const light = getComputedStyle($('#api-config-manager')[0]).backgroundColor === 'rgb(250, 251, 254)' && getComputedStyle($('.api-config-apply')[0]).backgroundColor === 'rgb(241, 243, 248)' && getComputedStyle($('#api-config-search')[0]).borderTopLeftRadius === '6px';
-        $('#api-config-theme').val('dark').trigger('change');
+        fixture.setManagerTheme('dark', true);
         const dark = getComputedStyle($('#api-config-manager')[0]).backgroundColor === 'rgb(35, 38, 48)' && getComputedStyle($('.api-config-apply')[0]).backgroundColor === 'rgb(43, 47, 59)';
-        $('#api-config-theme').val('tavern').trigger('change');
+        fixture.setManagerTheme('tavern', true);
         return light && dark && document.documentElement.getAttribute('style') === hostStyle && JSON.stringify(fixture.settings.configs) === configs && getComputedStyle($('#api-config-manager')[0]).backgroundColor === 'rgb(25, 45, 39)';
     `);
     await check('editing the custom stylesheet updates the open modal immediately', `
@@ -493,6 +548,7 @@ async function main() {
     for (const [width, height, mobile] of [[1298, 860, false], [390, 844, true]]) {
         await setViewport(width, height, mobile);
         await evaluate(`fixture.showManagerView('list'); $('#api-config-list-scroll').scrollTop(0);`);
+        await checkHeaderControlSizing(`custom CSS ${width}`);
         await check(`custom CSS ${width}: stays centered and bounded`, `
             const panel = $('#api-config-manager')[0]; const rect = panel.getBoundingClientRect();
             return Math.abs(rect.left - (innerWidth - rect.width) / 2) < 2 && Math.abs(rect.top - (innerHeight - rect.height) / 2) < 2 && panel.scrollWidth <= panel.clientWidth + 1 && rect.bottom <= innerHeight;
@@ -502,7 +558,7 @@ async function main() {
     }
     await check('touch opening and tab switching do not autofocus the keyboard', `
         $('#api-config-close').trigger('click'); $('.api-config-open').trigger('click');
-        const opened = document.activeElement.id === 'api-config-manager' && $('.api-config-apply').first().outerHeight() >= 40;
+        const opened = document.activeElement.id === 'api-config-manager' && $('.api-config-apply').first().outerHeight() >= 30 && $('.api-config-apply').first().outerHeight() < 36;
         $('#api-config-editor-tab').trigger('click');
         return matchMedia('(pointer: coarse)').matches && opened && document.activeElement.id === 'api-config-manager' && parseFloat(getComputedStyle($('#api-config-name')[0]).fontSize) >= 16 && $('#api-config-save').outerHeight() >= 44;
     `);

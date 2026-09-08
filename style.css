@@ -117,8 +117,7 @@
     white-space: nowrap;
 }
 
-#api-config-launcher-count,
-.api-config-theme-note {
+#api-config-launcher-count {
     font-size: 0.85em;
     opacity: 0.7;
 }
@@ -277,8 +276,19 @@ body.api-config-modal-open {
 }
 
 .api-config-header-actions {
+    --acm-header-button-size: 34px;
     flex-shrink: 0;
     gap: 6px;
+}
+
+/* 连接、主题、关闭共用外框尺寸，不受各自边框或图标变化影响。 */
+#api-config-manager .api-config-header-actions > .menu_button {
+    box-sizing: border-box;
+    width: var(--acm-header-button-size);
+    min-width: var(--acm-header-button-size);
+    height: var(--acm-header-button-size);
+    min-height: var(--acm-header-button-size);
+    padding: 0;
 }
 
 .api-config-title-icon {
@@ -320,19 +330,19 @@ body.api-config-modal-open {
     padding: 0 18px;
 }
 
-.api-config-theme-control {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    margin-left: auto;
-    font-size: 0.92em;
+/* 一个无边框图标循环切换三种美化，保留键盘 focus-visible 提示。 */
+#api-config-manager #api-config-theme-toggle {
+    border: 0;
+    box-shadow: none;
+    background: transparent;
 }
 
-#api-config-manager #api-config-theme {
-    width: 154px;
-    min-height: 34px;
-    padding: 4px 24px 4px 8px;
+#api-config-manager #api-config-theme-toggle:hover {
+    background: var(--acm-surface-raised);
+}
+
+#api-config-manager #api-config-theme-toggle:focus:not(:focus-visible) {
+    outline: none;
 }
 
 .api-config-tabs {
@@ -510,11 +520,92 @@ body.api-config-modal-open {
     font-size: 0.9em;
 }
 
-.api-config-model-input {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.api-config-credential {
+    position: relative;
     min-width: 0;
+}
+
+#api-config-manager .api-config-credential .text_pole {
+    padding-right: 42px;
+}
+
+/* 避免 Edge 的原生密码眼睛与扩展按钮重复。 */
+#api-config-manager .api-config-credential input::-ms-reveal {
+    display: none;
+}
+
+#api-config-manager .api-config-credential .api-config-credential-toggle {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    min-height: 30px;
+    margin: 0;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    opacity: 0.7;
+}
+
+#api-config-manager .api-config-credential .api-config-credential-toggle:hover,
+#api-config-manager .api-config-credential .api-config-credential-toggle[aria-pressed="true"] {
+    opacity: 1;
+}
+
+.api-config-model-input {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.api-config-model-hint {
+    opacity: 0.65;
+    font-size: 0.85em;
+    overflow-wrap: anywhere;
+}
+
+#api-config-preferred-models {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-width: 0;
+    margin-top: 3px;
+}
+
+.api-config-preferred-model {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    min-width: 0;
+    padding: 3px 4px;
+    border: 1px solid var(--acm-border);
+    border-radius: 6px;
+    background: var(--acm-surface-soft);
+}
+
+#api-config-manager .api-config-preferred-model .menu_button {
+    width: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 2px;
+    font-size: 0.82em;
+}
+
+#api-config-manager .api-config-editor-model-default[aria-pressed="true"] {
+    color: var(--acm-accent);
+    background: var(--acm-surface-raised);
+}
+
+#api-config-manager .api-config-editor-model-default[aria-pressed="false"] i {
+    opacity: 0.35;
 }
 
 #api-config-source-hint {
@@ -592,7 +683,7 @@ body.api-config-modal-open {
     grid-template-columns: minmax(0, 1fr) auto auto;
     grid-template-areas: "info pin actions";
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     min-height: 46px;
     padding: 7px 10px;
     margin: 5px 0;
@@ -607,6 +698,61 @@ body.api-config-modal-open {
 .api-config-item:focus-within {
     border-color: var(--acm-accent);
     background: var(--acm-surface-raised);
+}
+
+.api-config-item[data-has-models="true"] {
+    cursor: pointer;
+}
+
+.api-config-expand-icon {
+    flex: 0 0 auto;
+    width: 10px;
+    font-size: 0.75em;
+    opacity: 0.7;
+}
+
+.api-config-saved-models {
+    grid-column: 1 / -1;
+    min-width: 0;
+    padding-top: 5px;
+    border-top: 1px solid var(--acm-border);
+    cursor: default;
+}
+
+.api-config-saved-model {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 4px 0;
+}
+
+.api-config-saved-model + .api-config-saved-model {
+    border-top: 1px solid var(--acm-border);
+}
+
+.api-config-saved-model-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 0.9em;
+    overflow-wrap: anywhere;
+}
+
+.api-config-model-default-badge {
+    flex: 0 0 auto;
+    padding: 0 4px;
+    border-radius: 4px;
+    background: var(--acm-surface-raised);
+    color: var(--acm-accent);
+    font-size: 0.75em;
+}
+
+#api-config-list .api-config-model-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 3px;
+    margin-left: auto;
+    font-size: 0.92em;
 }
 
 .api-config-info {
@@ -712,11 +858,12 @@ body.api-config-modal-open {
 /* 图钉独立于四个操作按钮；手机放在信息右侧，不新增一整行。 */
 #api-config-list .api-config-pin {
     grid-area: pin;
-    width: 30px;
-    min-width: 30px;
-    height: 30px;
-    min-height: 30px;
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    min-height: 24px;
     padding: 0;
+    font-size: 0.85em;
 }
 
 .api-config-pin > i {
@@ -740,18 +887,20 @@ body.api-config-modal-open {
     grid-area: actions;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 3px;
     flex-wrap: nowrap;
     margin: 0;
     font-size: 0.92em;
 }
 
-#api-config-list .api-config-actions .menu_button {
+#api-config-list .api-config-actions .menu_button,
+#api-config-list .api-config-model-actions .menu_button {
     flex: 0 0 auto;
     width: auto;
-    min-height: 30px;
-    min-width: 44px;
-    padding: 4px 9px;
+    min-height: 24px;
+    min-width: 34px;
+    padding: 2px 5px;
+    font-size: 0.84em;
     line-height: 1.2;
 }
 
@@ -815,18 +964,6 @@ body.api-config-modal-open {
         padding-right: 10px;
     }
 
-    .api-config-theme-control {
-        font-size: max(16px, var(--acm-font-size));
-    }
-
-    .api-config-theme-control > span {
-        display: none;
-    }
-
-    #api-config-manager #api-config-theme {
-        width: 156px;
-    }
-
     .api-config-list-toolbar {
         grid-template-columns: minmax(0, 1fr);
         gap: 6px;
@@ -856,10 +993,6 @@ body.api-config-modal-open {
 }
 
 @media (pointer: coarse) {
-    #api-config-manager #api-config-theme {
-        min-height: 40px;
-    }
-
     #api-config-manager .menu_button,
     .api-config-tabs [role="tab"] {
         min-height: 40px;
@@ -870,16 +1003,23 @@ body.api-config-modal-open {
         height: 40px;
     }
 
-    #api-config-list .api-config-actions .menu_button {
-        min-height: 40px;
-        min-width: 48px;
+    #api-config-list .api-config-actions .menu_button,
+    #api-config-list .api-config-model-actions .menu_button,
+    #api-config-manager .api-config-preferred-model .menu_button {
+        min-height: 30px;
+        min-width: 36px;
+        padding: 3px 5px;
     }
 
     #api-config-list .api-config-pin {
-        width: 40px;
-        min-width: 40px;
-        height: 40px;
-        min-height: 40px;
+        width: 30px;
+        min-width: 30px;
+        height: 30px;
+        min-height: 30px;
+    }
+
+    .api-config-header-actions {
+        --acm-header-button-size: 40px;
     }
 
     #api-config-manager .api-config-editor-footer .menu_button {
@@ -887,8 +1027,7 @@ body.api-config-modal-open {
     }
 
     .api-config-field,
-    .api-config-search-box,
-    .api-config-theme-control {
+    .api-config-search-box {
         font-size: max(16px, var(--acm-font-size));
     }
 }
@@ -933,15 +1072,6 @@ body.api-config-modal-open {
 }
 
 @media (max-width: 380px) {
-    #api-config-connect-all > i {
-        display: none;
-    }
-
-    #api-config-manager #api-config-connect-all {
-        padding-left: 7px;
-        padding-right: 7px;
-    }
-
     .api-config-navigation {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
@@ -949,16 +1079,6 @@ body.api-config-modal-open {
 
     .api-config-tabs {
         width: 100%;
-    }
-
-    .api-config-theme-control {
-        width: 100%;
-        justify-content: space-between;
-    }
-
-    .api-config-theme-control > span {
-        display: inline;
-        font-size: 0.8em;
     }
 
     .api-config-title-icon {
@@ -970,8 +1090,11 @@ body.api-config-modal-open {
     }
 
     .api-config-model-input {
-        flex-direction: column;
-        align-items: stretch;
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    #api-config-fetch-models {
+        grid-column: 1 / -1;
     }
 }
 
@@ -986,7 +1109,6 @@ body.api-config-modal-open {
     padding-bottom: 8px;
 }
 
-.api-config-compact-height .api-config-theme-note,
 .api-config-compact-height .api-config-list-footer {
     display: none;
 }
@@ -1008,4 +1130,27 @@ body.no-blur #api-config-manager {
     .api-config-launcher * {
         transition: none;
     }
+}
+
+/* 交互与紧凑布局：入口整条均可点击，减少操作按钮占用。 */
+.api-config-launcher {
+    cursor: pointer;
+}
+
+.api-config-launcher .api-config-open {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
+    padding: 0;
+    pointer-events: none;
+}
+
+.api-config-launcher:focus-visible {
+    outline: 2px solid var(--acm-accent);
+    outline-offset: 2px;
+}
+
+#api-config-manager #api-config-connect-all .api-config-connect-all-label {
+    display: none;
 }

@@ -14,6 +14,7 @@ function extract(start, end) {
 }
 const toggleSource = extract('function toggleConfigPin(', '// 渲染配置列表');
 const saveSource = extract('function saveNewConfig()', 'function updateFormBySource(');
+const modelHelpers = extract('function normalizePreferredModels(', 'function initSettings(');
 const groupingSource = extract('    // 置顶区跨分组', '    sections.forEach(');
 const plain = value => JSON.parse(JSON.stringify(value));
 const itemsFor = configs => configs.map((config, index) => ({ config, index }));
@@ -34,6 +35,7 @@ function fixture(configs = []) {
         CHAT_COMPLETION_SOURCES: { CUSTOM: 'custom', MAKERSUITE: 'makersuite' },
         SOURCE_SECRET_KEYS: { custom: 'custom', makersuite: 'makersuite' },
         normalizeSource: source => source === 'makersuite' ? 'makersuite' : 'custom',
+        editorModels: [], editorDefaultModel: '', setEditorModels: () => {},
         editingIndex: -1, lastConnectionSummary: 'Previous connection results',
         document: { querySelector: () => null, getElementById: () => null },
         saveSettingsDebounced: () => calls.saves++, renderConfigList: () => calls.renders++,
@@ -42,7 +44,7 @@ function fixture(configs = []) {
         toastr: Object.fromEntries(['success', 'error', 'info'].map(type => [type, (...args) => calls.messages.push({ type, args })])),
         fetch: forbidden, connectConfig: forbidden, applyConfig: forbidden, writeSecret: forbidden, rotateSecret: forbidden,
     });
-    vm.runInContext(`${toggleSource}\n${saveSource}\nfunction groupItems(matches) {\n${groupingSource}\nreturn sections;\n}`, context);
+    vm.runInContext(`${modelHelpers}\n${toggleSource}\n${saveSource}\nfunction groupItems(matches) {\n${groupingSource}\nreturn sections;\n}`, context);
     function fillForm(fields = {}) {
         const defaults = { name: 'Pin Draft', group: '', source: 'custom', url: 'https://new.invalid/v1', key: '', 'reverse-proxy': '', 'proxy-password': '', model: '' };
         for (const [field, value] of Object.entries({ ...defaults, ...fields })) values.set('#api-config-' + field, value);

@@ -1,135 +1,85 @@
 # 发布指南
 
-## 准备发布到GitHub
+## v1.5.0 发布信息
 
-### 1. 在GitHub上创建新仓库
+- **版本**：1.5.0
+- **更新日期**：2026-09-08
+- **Tag**：`v1.5.0`
+- **Release 标题**：`API配置管理器 v1.5.0`
+- **Release 正文**：复制 [CHANGELOG.md](CHANGELOG.md) 中 `## v1.5.0 (2026-09-08)` 下的内容，到下一版本标题前为止，不包含历史版本日志。
 
-1. 登录 [GitHub](https://github.com)
-2. 点击右上角的 "+" 按钮，选择 "New repository"
-3. 填写仓库信息：
-   - **Repository name**: `api-config-manager`
-   - **Description**: `A SillyTavern extension for managing multiple API configurations`
-   - **Visibility**: 选择 **Public** (这样其他人才能通过URL安装)
-   - **不要勾选** "Add a README file" (我们已经有了)
-   - **不要勾选** "Add .gitignore" (我们已经有了)
-   - **License**: 选择 "MIT License"
-4. 点击 "Create repository"
+本文件是发布操作说明；修改版本号或更新日志，不代表已推送代码、创建标签或发布 GitHub Release。
 
-### 2. 上传代码到GitHub
+## 1. 确认发布内容
 
-在扩展文件夹中执行以下命令：
+在扩展仓库根目录执行：
 
-```bash
-# 进入扩展目录
-cd "public/scripts/extensions/api-config-manager"
-
-# 初始化Git仓库
-git init
-
-# 添加所有文件
-git add .
-
-# 提交代码
-git commit -m "🎉 Initial release of API Config Manager v1.0.0
-
-✨ Features:
-- Multiple API configuration management
-- One-click configuration switching
-- Automatic model detection and selection
-- Responsive design for all devices
-- Complete privacy protection
-- Smart positioning in API connection interface
-
-🔒 Privacy:
-- All data stored locally
-- No user data in repository
-- Safe for public sharing"
-
-# 添加远程仓库
-git remote add origin https://github.com/Lorenzzz-Elio/api-config-manager.git
-
-# 设置主分支
-git branch -M main
-
-# 推送到GitHub
-git push -u origin main
+```powershell
+git status --short
+git branch --show-current
+git remote -v
+git diff --check
 ```
 
-### 3. 创建Release (可选但推荐)
+- 确认远程仓库和分支是本次要发布的目标；下文以 `origin` / `main` 为例。
+- 确认 `manifest.json`、`index.js`、README 及更新日志中的当前版本一致。
+- 若发布到自己的分叉仓库，先核对 README 安装地址及 manifest 的主页地址是否指向预期仓库，并保留原作者署名。
+- 不提交酒馆用户设置、配置导出、备份、真实凭据或测试截图。配置中的明文凭据会随酒馆用户设置保存；源码公开不等于设置文件可以公开。
 
-1. 在GitHub仓库页面点击 "Releases"
-2. 点击 "Create a new release"
-3. 填写信息：
-   - **Tag version**: `v1.0.0`
-   - **Release title**: `API Config Manager v1.0.0 - Initial Release`
-   - **Description**: 复制以下内容
+## 2. 运行检查
 
-```markdown
-## 🎉 首次发布！
+使用 Node.js 22 或更高版本：
 
-API配置管理器是一个强大的SillyTavern扩展，让您轻松管理和切换多个API配置。
-
-### ✨ 主要功能
-- 🔧 多配置管理：保存无限个API配置
-- ⚡ 一键切换：快速应用任意配置
-- 🤖 智能模型选择：自动获取支持的模型
-- 📱 响应式设计：完美支持所有设备
-- 🔒 隐私保护：数据仅存储在本地
-
-### 🚀 安装方法
-在SillyTavern扩展设置中输入以下Git URL：
-```
-https://github.com/Lorenzzz-Elio/api-config-manager.git
+```powershell
+node --check index.js
+node --test tests/connection.test.cjs tests/pin.test.cjs tests/theme.test.cjs tests/models.test.cjs tests/model-fetch.test.cjs tests/release.test.cjs
 ```
 
-### 📖 使用说明
-详细使用方法请查看 [README.md](README.md)
+浏览器回归还需要本机 Chromium / Edge 及酒馆静态资源。把路径替换为自己的安装目录：
 
-### 🔒 隐私保证
-- 所有配置数据仅存储在您的本地浏览器中
-- 不会向任何服务器发送您的API密钥
-- 扩展代码完全开源，可自由审查
-
-**如果觉得有用，请给个⭐Star支持！**
+```powershell
+$env:SILLYTAVERN_PUBLIC = 'E:\SillyTavern\SillyTavern\public'
+node --test tests/modal-ui.test.cjs
 ```
 
-4. 点击 "Publish release"
+如不使用默认 Edge 路径，可设置 `BROWSER_PATH`。自动测试只使用模拟配置并阻止页面网络请求，不使用真实 API 或密钥。测试截图写入系统临时目录，不要加入发布提交。
 
-## 安装URL
+## 3. 提交并推送
 
-发布完成后，您的扩展安装URL将是：
+先检查本轮全部改动，再按需暂存发布文件：
 
-```
-https://github.com/Lorenzzz-Elio/api-config-manager.git
-```
-
-## 宣传建议
-
-### 在SillyTavern社区分享
-1. **Reddit**: r/SillyTavernAI
-2. **Discord**: SillyTavern官方服务器
-3. **GitHub**: SillyTavern主仓库的Discussions
-
-### 分享模板
-```
-🎉 新扩展发布：API配置管理器
-
-厌倦了频繁手动切换API配置？这个扩展可以帮您：
-✨ 保存多个API配置
-⚡ 一键快速切换
-🤖 自动选择模型
-📱 完美移动端支持
-
-安装URL：https://github.com/Lorenzzz-Elio/api-config-manager.git
-
-完全开源，隐私安全！
+```powershell
+git add -- manifest.json index.js style.css README.md CHANGELOG.md CHECKLIST.md PRIVACY.md publish.md tests
+git diff --cached --check
+git diff --cached --stat
+git diff --cached
 ```
 
-## 维护建议
+确认暂存内容无遗漏、无真实配置或凭据后：
 
-1. **定期更新**: 根据用户反馈改进功能
-2. **版本管理**: 使用语义化版本号 (v1.0.0, v1.1.0等)
-3. **文档维护**: 保持README和文档的更新
-4. **社区互动**: 及时回复Issues和Pull Requests
+```powershell
+git commit -m "Release v1.5.0"
+git push origin main
+```
 
-祝您的扩展发布成功！🚀
+## 4. 创建版本标签与 Release
+
+确认标签尚未存在，不要覆盖或强制移动已发布的标签：
+
+```powershell
+git tag --list v1.5.0
+git tag -a v1.5.0 -m "API配置管理器 v1.5.0"
+git push origin v1.5.0
+```
+
+在目标 GitHub 仓库进入 **Releases → Draft a new release**：
+
+1. 选择标签 `v1.5.0`。
+2. 标题填写 **API配置管理器 v1.5.0**。
+3. 正文复制更新日志中的本次版本内容，预览排版。
+4. 确认目标提交包含本次完整代码、样式及文档，不勾选预发布选项。
+5. 点击 **Publish release**；确认远程页面和标签后，才向用户宣布已发布。
+
+## 用户更新说明
+
+通过酒馆的扩展管理更新后刷新页面，管理弹窗应显示 **v1.5.0**。已有配置兼容保留；建议更新前备份酒馆用户设置，并妥善保护备份中的明文凭据。扩展不再内置联网版本检查或更新按钮。
