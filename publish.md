@@ -32,7 +32,7 @@ git diff --check
 
 ```powershell
 node --check index.js
-node --test tests/connection.test.cjs tests/pin.test.cjs tests/theme.test.cjs tests/models.test.cjs tests/model-fetch.test.cjs tests/release.test.cjs
+node --test tests/connection.test.cjs tests/pin.test.cjs tests/theme.test.cjs tests/models.test.cjs tests/model-fetch.test.cjs tests/apply-secret.test.cjs tests/release.test.cjs
 ```
 
 浏览器回归还需要本机 Chromium / Edge 及酒馆静态资源。把路径替换为自己的安装目录：

@@ -248,6 +248,25 @@ async function findExistingSecretIdByValue(key, value) {
     return null;
 }
 
+async function activateConfigSecret(key, id) {
+    // 旧版酒馆不支持多密钥轮换，保留原有兼容行为。
+    if (!rotateSecret) return;
+
+    // 宿主 rotateSecret 会触发 #main_api.change，误报预设正则需要重载。
+    // 应用配置并未切换主 API/预设，且稍后会自行重连；这里只激活密钥并同步状态。
+    const response = await fetch('/api/secrets/rotate', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        body: JSON.stringify({ key, id }),
+    });
+    if (!response.ok) {
+        throw new Error('无法激活配置密钥，请重试');
+    }
+
+    await readSecretState();
+    await eventSource.emit(event_types.SECRET_ROTATED, key);
+}
+
 async function ensureSecretActive(key, value, label) {
     if (!value) return null;
 
@@ -257,9 +276,7 @@ async function ensureSecretActive(key, value, label) {
 
     const existingId = await findExistingSecretIdByValue(key, value);
     if (existingId) {
-        if (rotateSecret) {
-            await rotateSecret(key, existingId);
-        }
+        await activateConfigSecret(key, existingId);
         return existingId;
     }
 
@@ -326,9 +343,7 @@ async function setSourceSecretIfProvided(source, configName, value, config) {
     const hasKnownSecret = knownId ? secrets.some(s => s?.id === knownId) : false;
 
     if (hasKnownSecret) {
-        if (rotateSecret) {
-            await rotateSecret(secretKey, knownId);
-        }
+        await activateConfigSecret(secretKey, knownId);
         return;
     }
 

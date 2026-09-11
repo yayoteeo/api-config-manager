@@ -120,7 +120,7 @@ https://github.com/Lorenzzz-Elio/api-config-manager.git
 使用 Node.js 22+ 运行：
 ```text
 node --check index.js
-node --test tests/pin.test.cjs tests/connection.test.cjs tests/theme.test.cjs tests/models.test.cjs tests/model-fetch.test.cjs
+node --test tests/pin.test.cjs tests/connection.test.cjs tests/theme.test.cjs tests/models.test.cjs tests/model-fetch.test.cjs tests/apply-secret.test.cjs
 node --test tests/modal-ui.test.cjs
 ```
 置顶和连接逻辑检查无需浏览器或额外依赖，覆盖置顶排序、保存与编辑保留、凭据隔离、错误响应、并发、取消、超时重试，以及编辑/删除时的异步结果归属。多模型与获取检查还覆盖默认模型、去重、逐模型操作、请求/响应体超时、取消重试和旧结果隔离。界面检查另外需要本机 Edge。
