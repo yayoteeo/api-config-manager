@@ -94,7 +94,7 @@ let editorDefaultModel = '';
 const expandedModelConfigs = new WeakSet();
 let configApplySequence = 0;
 let modelSelectionTimer = null;
-const MODEL_FETCH_TIMEOUT_MS = 20000;
+const MODEL_FETCH_TIMEOUT_MS = 12000;
 let modelFetchTask = null;
 let managerView = 'list';
 let managerTrigger = null;
@@ -489,7 +489,7 @@ async function applyConfig(config, model = getConfigDefaultModel(config)) {
 // 智能等待连接并设置模型
 function waitForConnectionAndSetModel(modelName, configName, source, applySequence = configApplySequence) {
     let attempts = 0;
-    const maxAttempts = 20; // 最多尝试20次，每次500ms，总共10秒
+    const maxAttempts = 24; // 更快开始检测；最多等待约6秒
 
     const checkConnection = () => {
         // 快速切换时，不让上一次连接的延迟检查把新选择覆盖回去。
@@ -509,7 +509,7 @@ function waitForConnectionAndSetModel(modelName, configName, source, applySequen
 
         if (attempts < maxAttempts) {
             // 继续等待
-            modelSelectionTimer = setTimeout(checkConnection, 500);
+            modelSelectionTimer = setTimeout(checkConnection, 250);
         } else {
             // 超时，但仍然尝试设置模型
             setPreferredModel(modelName, configName, source);
@@ -517,7 +517,7 @@ function waitForConnectionAndSetModel(modelName, configName, source, applySequen
     };
 
     // 开始检查
-    modelSelectionTimer = setTimeout(checkConnection, 1000); // 1秒后开始检查
+    modelSelectionTimer = setTimeout(checkConnection, 100); // 尽快响应本地或高速端点
 }
 
 // 设置首选模型
@@ -901,8 +901,8 @@ function updateFormBySource(sourceValue) {
 
 // 连接只走酒馆原生的模型列表 /status，不发送聊天、测试消息或生成请求。
 // 限定这两种来源：其他来源的原生 /status 不一定是只读连接（例如 Azure）。
-const CONNECTION_TIMEOUT_MS = 20000;
-const CONNECTION_CONCURRENCY = 3;
+const CONNECTION_TIMEOUT_MS = 12000;
+const CONNECTION_CONCURRENCY = 5;
 const CONNECTION_NOTE = '“连接”仅获取模型列表，不发送消息；切换 API 请点“应用”。';
 const connectionStates = new WeakMap();
 const connectionTasks = new Map();
@@ -1094,7 +1094,7 @@ async function runConnectionTask(task) {
         if (task.cancelled) {
             state = { phase: 'cancelled', label: '已取消', detail: '已停止等待本次连接；未发送生成请求。' };
         } else if (task.timedOut) {
-            state = { phase: 'failed', label: '连接超时', detail: '20 秒内未收到模型列表；已停止等待，可以稍后重连。' };
+            state = { phase: 'failed', label: '连接超时', detail: '12 秒内未收到模型列表；已停止等待，可以稍后重连。' };
         } else if (error instanceof ConfigConnectionError) {
             state = { phase: 'failed', label: error.label, detail: error.message };
         } else {
@@ -1113,7 +1113,7 @@ function pumpConnectionQueue() {
         if (task.settled) continue;
         task.started = true;
         activeConnections++;
-        connectionStates.set(task.config, { phase: 'connecting', label: '连接中', detail: '正在获取模型列表（最多等待 20 秒），不会发送消息。' });
+        connectionStates.set(task.config, { phase: 'connecting', label: '连接中', detail: '正在获取模型列表（最多等待 12 秒），不会发送消息。' });
         refreshConnectionUI(task.config);
         // 推迟执行，避免一长串无效配置同步失败时递归占满调用栈。
         void Promise.resolve().then(() => runConnectionTask(task));
@@ -1131,7 +1131,7 @@ function connectConfig(config) {
     task.promise = new Promise(resolve => { task.resolve = resolve; });
     connectionTasks.set(config, task);
     connectionQueue.push(task);
-    connectionStates.set(config, { phase: 'queued', label: '等待中', detail: '已排队；同时最多连接 3 个配置，不发送消息。' });
+    connectionStates.set(config, { phase: 'queued', label: '等待中', detail: '已排队；同时最多连接 5 个配置，不发送消息。' });
     refreshConnectionUI(config);
     pumpConnectionQueue();
     return task.promise;

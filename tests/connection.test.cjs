@@ -29,7 +29,7 @@ function harness(configs) {
         SOURCE_SECRET_KEYS: { custom: 'api_key_custom', makersuite: 'api_key_makersuite' },
         getRequestHeaders: () => ({ 'Content-Type': 'application/json', 'X-CSRF-Token': 'FIXTURE-ONLY' }),
         $: () => chain, fetch: mock.fetch, URL, AbortController, performance,
-        setTimeout: (callback, delay) => setTimeout(callback, mock.fastTimeout && delay === 20000 ? 15 : delay),
+        setTimeout: (callback, delay) => setTimeout(callback, mock.fastTimeout && delay === 12000 ? 15 : delay),
         clearTimeout,
         saveSettingsDebounced: () => writes.push('save'),
         writeSecret: () => writes.push('write'), rotateSecret: () => writes.push('rotate'),
@@ -114,16 +114,16 @@ test('double-clicks and overlapping bulk runs reuse requests and obey the shared
     const all = api.connectAllConfigs();
     assert.equal(api.connectAllConfigs(), all);
     await tick();
-    assert.equal(mock.calls.length, 3);
-    assert.equal(api.running(), 3);
-    assert.equal(api.queued(), 5);
+    assert.equal(mock.calls.length, 5);
+    assert.equal(api.running(), 5);
+    assert.equal(api.queued(), 3);
     mock.hold = false;
     mock.releaseAll();
     await all;
     await single;
     assert.equal(mock.calls.length, 8);
     assert.equal(new Set(mock.calls.map(call => call.body.custom_url)).size, 8);
-    assert.equal(mock.maxActive, 3);
+    assert.equal(mock.maxActive, 5);
     assert.equal(api.pending(), 0);
     assert.equal(api.batch(), null);
     assert.equal(JSON.stringify(settings), before);
@@ -173,14 +173,14 @@ test('stop all cancels active and queued work without starting extra requests an
     api.stopAllConnections();
     api.stopAllConnections();
     await all;
-    assert.equal(mock.calls.length, 3);
+    assert.equal(mock.calls.length, 5);
     assert.ok(mock.calls.every(call => call.aborted));
     assert.ok(configs.every(config => api.state(config).phase === 'cancelled'));
     assert.equal(api.pending(), 0);
     assert.equal(api.queued(), 0);
     mock.hold = false;
     await api.connectAllConfigs();
-    assert.equal(mock.calls.length, 12);
+    assert.equal(mock.calls.length, 14);
     assert.ok(configs.every(config => api.state(config).phase === 'connected'));
 });
 
@@ -206,8 +206,9 @@ test('deleting queued configurations cancels their requests without shifting oth
     mock.hold = false;
     mock.releaseAll();
     await all;
-    assert.equal(mock.calls.length, 5);
-    assert.ok(mock.calls.every(call => call.body.custom_url !== removed.customUrl));
+    assert.equal(mock.calls.length, 6);
+    const removedCall = mock.calls.find(call => call.body.custom_url === removed.customUrl);
+    assert.equal(removedCall?.aborted, true);
     assert.equal(api.state(removed), undefined);
     assert.ok(configs.every(config => api.state(config).phase === 'connected'));
 });
